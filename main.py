@@ -18,28 +18,72 @@
 #
 
 
-import socketio
+import socketserver
+import threading
+import json
+import traceback
+from robotController import RobotController
+import signal
+import sys
+from functools import partial
 
-import eventlet
 
-sio = socketio.Server()
+class connectionHandler(socketserver.BaseRequestHandler):
 
-app = socketio.WSGIApp(sio, static_files={
-    '/': {'content_type': 'text/html', 'filename': 'index.html'}
-})
+    def processDataReceived(self, data):
+        #info = '{"name": "Dave","City": "NY"}'
 
-@sio.event
-def connect(sid, environ):
-    print('connect ', sid)
+        try:
 
-@sio.event
-def my_message(sid, data):
-    print('message ', data)
+            datasplited=data.decode().split('\n');
 
-@sio.event
-def disconnect(sid):
-    print('disconnect ', sid)
+            for commanddata in datasplited:
+                if len(commanddata)==0: continue
+                res = json.loads(commanddata)
+                if(res['command']):
+                    command = res['command']
+                    if command == 'AddMonitorVar':
+                        monitorvar = res['value']
+                        self.server.robotcontroller.addMonitorVar(monitorvar)
+                    if command == 'RemoveMonitorVar':
+                        monitorvar = res['value']
+                        self.server.robotcontroller.removeMonitorVar(monitorvar)
+            # print(res['command'])
+        except Exception as e:
+            print(e.__class__, ':', e)
+            print(traceback.format_exc())
 
+    def handle(self):
+        print('Client connected')
+        self.server.robotcontroller.tcpCLient = self.request
+        while 1:
+            dataReceived = self.request.recv(1024)
+            if not dataReceived:
+                break
+            print("Data received:", dataReceived)
+            self.processDataReceived(dataReceived)
+            # self.request.send(dataReceived)
+
+def exit_gracefully(signum, robotcontroller):
+    # restore the original signal handler as otherwise evil things will happen
+    # in raw_input when CTRL+C is pressed, and our signal handler is not re-entrant
+    
+    print("Ok ok, quitting")
+    robotcontroller.terminateMonitorVars=True
+    sys.exit(0)
+
+   
+    
 if __name__ == '__main__':
-    eventlet.wsgi.server(eventlet.listen(('', 5000)), app)
-
+    # store the original SIGINT handler
+   
+    robotcontroller = RobotController('192.168.250.101')
+    # signal.signal(signal.SIGINT, partial(exit_gracefully, robotcontroller))
+    
+    
+    socketserver.TCPServer.allow_reuse_address = 1
+    tcpserver = socketserver.TCPServer(('0.0.0.0', 8881), connectionHandler)
+    tcpserver.robotcontroller = robotcontroller
+        
+    tcpserver.serve_forever()
+       

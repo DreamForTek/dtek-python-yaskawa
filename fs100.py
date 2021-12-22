@@ -88,8 +88,6 @@ class FS100ReqPacket(FS100PacketHeader):
         h += struct.pack('B', self.service)
         h += struct.pack('<H', FS100PacketHeader.HEADER_PADDING)
         h += self.data
-        teste = h.decode("ascii")
-        print(teste)
         return h
 
     def clone(self, data=None):
