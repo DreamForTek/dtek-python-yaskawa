@@ -56,6 +56,9 @@ class connectionHandler(socketserver.BaseRequestHandler):
     def handle(self):
         print('Client connected')
         self.server.robotcontroller.tcpCLient = self.request
+
+        self.server.robotcontroller.clearVars()
+
         while 1:
             dataReceived = self.request.recv(1024)
             if not dataReceived:

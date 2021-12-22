@@ -9,6 +9,7 @@ import time
 import traceback
 import json
 
+
 class RobotController:
     def __init__(self, ip='192.168.250.101'):
 
@@ -31,6 +32,9 @@ class RobotController:
     def __enter__(self):
         pass
 
+    def clearVars(self):
+        self.monitorVars.clear()
+
     def monitorVarsWorker(self):
         """thread worker function"""
         print('Monitor vars thread started')
@@ -39,14 +43,16 @@ class RobotController:
             try:
 
                 for monitorVar in self.monitorVars:
-                    if monitorVar['varType'] == "Register":
+                    varToRead = None
+
+                    if monitorVar['varType'] == "Integer":
                         varToRead = FS100.Variable(
-                            FS100.VarType.REGISTER, int(monitorVar['varNum']))
+                            FS100.VarType.INTEGER, int(monitorVar['varNum']))
 
                     if varToRead:
 
                         if FS100.ERROR_SUCCESS == self.robot.read_variable(varToRead):
-                            if monitorVar['varType'] == "Register":
+                            if monitorVar['varType'] == "String":
                                 val_str = varToRead.val.rstrip('\x00')
                             elif monitorVar['varType'] == "RobotPosition":
                                 # val_str = "Data type: [{}]\n".format(str(var.val['data_type']))
@@ -75,7 +81,8 @@ class RobotController:
                                 hex(self.robot.errno))
 
                             errorMessage = {
-                                'command': 'error',
+                                'command': 'readError',
+                                'varID': monitorVar['varID'],
                                 'message': message
                             }
                             errorMessageJson = json.dumps(errorMessage)
@@ -94,7 +101,7 @@ class RobotController:
     def addMonitorVar(self, newMonitorVar):
         varfound = False
         for monitorvar in self.monitorVars:
-            if monitorvar['id'] == newMonitorVar['id']:
+            if monitorvar['varID'] == newMonitorVar['varID']:
                 varfound = True
                 break
         if varfound == False:
@@ -104,9 +111,32 @@ class RobotController:
     def removeMonitorVar(self, monitorVarToRemove):
 
         for monitorvar in self.monitorVars:
-            if monitorvar['id'] == monitorVarToRemove['id']:
+            if monitorvar['varID'] == monitorVarToRemove['varID']:
                 self.monitorVars.remove(monitorvar)
                 break
+
+    def writeVariable(self, writeVar):
+        if writeVar['varType'] == "Integer":
+            varToWrite = FS100.Variable(
+                FS100.VarType.INTEGER, int(writeVar['varNum']), int(writeVar['varValue']))
+
+            if varToWrite:
+
+                if FS100.ERROR_SUCCESS == self.robot.write_variable(varToWrite):
+                    pass
+                else:
+                    message = "Failed to write the variable. ({})".format(
+                        hex(self.robot.errno))
+
+                    errorMessage = {
+                        'command': 'writeError',
+                        'varID': writeVar['varID'],
+                        'message': message
+                    }
+                    errorMessageJson = json.dumps(errorMessage)
+                    if self.tcpCLient:
+                        self.tcpCLient.send(errorMessageJson.encode())
+                    print(message)
 
     def on_reset_alarm(self):
         self.robot.reset_alarm(FS100.RESET_ALARM_TYPE_ALARM)
