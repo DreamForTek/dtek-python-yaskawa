@@ -7,7 +7,7 @@ import os
 import threading
 import time
 import traceback
-
+import json
 
 class RobotController:
     def __init__(self, ip='192.168.250.101'):
@@ -20,14 +20,17 @@ class RobotController:
         self.thread.start()
         # set 'reset alarm' button state
         # self.is_alarmed()
+
     def __exit__(self):
         # body of destructor
         print("Terminating monitor thread")
-        self.terminateMonitorVars=True
+        self.terminateMonitorVars = True
         self.thread.join()
         print("Monitor thread terminated")
+
     def __enter__(self):
         pass
+
     def monitorVarsWorker(self):
         """thread worker function"""
         print('Monitor vars thread started')
@@ -36,15 +39,16 @@ class RobotController:
             try:
 
                 for monitorVar in self.monitorVars:
-                    if monitorVar['varType']=="Register":
-                        varToRead = FS100.Variable(FS100.VarType.REGISTER, int(monitorVar['varNum']))
-                    
+                    if monitorVar['varType'] == "Register":
+                        varToRead = FS100.Variable(
+                            FS100.VarType.REGISTER, int(monitorVar['varNum']))
+
                     if varToRead:
-                        
+
                         if FS100.ERROR_SUCCESS == self.robot.read_variable(varToRead):
-                            if monitorVar['varType']=="Register":
+                            if monitorVar['varType'] == "Register":
                                 val_str = varToRead.val.rstrip('\x00')
-                            elif monitorVar['varType']=="RobotPosition":
+                            elif monitorVar['varType'] == "RobotPosition":
                                 # val_str = "Data type: [{}]\n".format(str(var.val['data_type']))
                                 # val_str += "Form: [{}]\n".format(str(var.val['form']))
                                 # val_str += "Tool number: [{}]\n".format(str(var.val['tool_no']))
@@ -61,10 +65,23 @@ class RobotController:
                                 pass
                             else:
                                 val_str = str(varToRead.val)
+
+                            # check if changed notify
                             if val_str:
-                                monitorVar['varvalue']=val_str
+                                monitorVar['varvalue'] = val_str
                         else:
-                            print("Failed to read the variable. ({})".format(hex(self.robot.errno))) 
+
+                            message = "Failed to read the variable. ({})".format(
+                                hex(self.robot.errno))
+
+                            errorMessage = {
+                                'command': 'error',
+                                'message': message
+                            }
+                            errorMessageJson = json.dumps(errorMessage)
+                            if self.tcpCLient:
+                                self.tcpCLient.send(errorMessageJson.encode())
+                            print(message)
 
                 # print(res['command'])
             except Exception as e:
@@ -73,6 +90,7 @@ class RobotController:
 
             time.sleep(0.1)
         print("Monitor thread exit")
+
     def addMonitorVar(self, newMonitorVar):
         varfound = False
         for monitorvar in self.monitorVars:
@@ -82,14 +100,13 @@ class RobotController:
         if varfound == False:
             self.monitorVars.append(newMonitorVar)
         # vartype=monitorVar['type']
+
     def removeMonitorVar(self, monitorVarToRemove):
-       
-        
+
         for monitorvar in self.monitorVars:
             if monitorvar['id'] == monitorVarToRemove['id']:
                 self.monitorVars.remove(monitorvar)
                 break
-        
 
     def on_reset_alarm(self):
         self.robot.reset_alarm(FS100.RESET_ALARM_TYPE_ALARM)
