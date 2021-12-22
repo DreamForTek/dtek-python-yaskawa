@@ -85,7 +85,6 @@ class RobotController:
                         self.tcpCLient.send(errorMessageJson.encode())
                     print(message)
 
-
     def monitorWorker(self):
         """thread worker function"""
         print('Monitor vars thread started')
@@ -94,9 +93,8 @@ class RobotController:
             try:
 
                 for monitorItem in self.monitorItems:
-                    
-                   self.read_Item(monitorItem)
 
+                    self.read_Item(monitorItem)
 
             except Exception as e:
                 print(e.__class__, ':', e)
@@ -105,17 +103,17 @@ class RobotController:
             time.sleep(0.1)
         print("Monitor thread exit")
 
-    def addMonitorVar(self, newMonitorVar):
-        varfound = False
-        for monitorvar in self.monitorItems:
-            if monitorvar['varID'] == newMonitorVar['varID']:
-                varfound = True
+    def addMonitorItem(self, newMonitorItem):
+        itemfound = False
+        for monitoritem in self.monitorItems:
+            if monitoritem['varID'] == newMonitorItem['varID']:
+                itemfound = True
                 break
-        if varfound == False:
-            self.monitorItems.append(newMonitorVar)
+        if itemfound == False:
+            self.monitorItems.append(newMonitorItem)
         # vartype=monitorVar['type']
 
-    def removeMonitorVar(self, monitorVarToRemove):
+    def removeMonitorItem(self, monitorVarToRemove):
 
         for monitorvar in self.monitorItems:
             if monitorvar['varID'] == monitorVarToRemove['varID']:
@@ -145,6 +143,31 @@ class RobotController:
                     if self.tcpCLient._closed == False:
                         self.tcpCLient.send(errorMessageJson.encode())
                     print(message)
+
+    def readStatus(self):
+        status = {}
+        if FS100.ERROR_SUCCESS == self.robot.get_status(status):
+
+            statusMessage = {
+                'command': 'readStatus',
+                'message': status
+            }
+            statusMessageJson = json.dumps(statusMessage)
+            if self.tcpCLient._closed == False:
+                self.tcpCLient.send(statusMessageJson.encode())
+
+        else:
+            message = "Failed to read status. ({})".format(
+                hex(self.robot.errno))
+
+            errorMessage = {
+                'command': 'readStatusError',
+                'message': message
+            }
+            errorMessageJson = json.dumps(errorMessage)
+            if self.tcpCLient._closed == False:
+                self.tcpCLient.send(errorMessageJson.encode())
+            print(message)
 
     def on_reset_alarm(self):
         self.robot.reset_alarm(FS100.RESET_ALARM_TYPE_ALARM)

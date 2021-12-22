@@ -42,15 +42,21 @@ class connectionHandler(socketserver.BaseRequestHandler):
                 res = json.loads(commanddata)
                 if(res['command']):
                     command = res['command']
-                    if command == 'AddMonitorVar':
-                        monitorvar = res['value']
-                        self.server.robotcontroller.addMonitorVar(monitorvar)
-                    if command == 'RemoveMonitorVar':
-                        monitorvar = res['value']
-                        self.server.robotcontroller.removeMonitorVar(monitorvar)
+                    if command == 'AddMonitorItem':
+                        monitoritem = res['value']
+                        self.server.robotcontroller.addMonitorItem(monitoritem)
+                    if command == 'RemoveMonitorItem':
+                        monitoritem = res['value']
+                        self.server.robotcontroller.removeMonitorItem(monitoritem)
                     if command == 'WriteVar':
-                        monitorvar = res['value']
-                        self.server.robotcontroller.writeVariable(monitorvar)
+                        monitoritem = res['value']
+                        self.server.robotcontroller.writeVariable(monitoritem)
+                    if command == 'readVar':
+                        monitoritem = res['value']
+                        self.server.robotcontroller.writeVariable(monitoritem)
+                    if command == 'readStatus':
+                        # monitoritem = res['value']
+                        self.server.robotcontroller.readStatus()
 
             # print(res['command'])
         except Exception as e:
