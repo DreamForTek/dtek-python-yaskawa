@@ -86,7 +86,7 @@ class RobotController:
                                 'message': message
                             }
                             errorMessageJson = json.dumps(errorMessage)
-                            if self.tcpCLient:
+                            if self.tcpCLient._closed == False:
                                 self.tcpCLient.send(errorMessageJson.encode())
                             print(message)
 
@@ -116,6 +116,7 @@ class RobotController:
                 break
 
     def writeVariable(self, writeVar):
+        varToWrite = None
         if writeVar['varType'] == "Integer":
             varToWrite = FS100.Variable(
                 FS100.VarType.INTEGER, int(writeVar['varNum']), int(writeVar['varValue']))
@@ -134,7 +135,7 @@ class RobotController:
                         'message': message
                     }
                     errorMessageJson = json.dumps(errorMessage)
-                    if self.tcpCLient:
+                    if self.tcpCLient._closed == False:
                         self.tcpCLient.send(errorMessageJson.encode())
                     print(message)
 

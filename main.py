@@ -48,6 +48,10 @@ class connectionHandler(socketserver.BaseRequestHandler):
                     if command == 'RemoveMonitorVar':
                         monitorvar = res['value']
                         self.server.robotcontroller.removeMonitorVar(monitorvar)
+                    if command == 'WriteVar':
+                        monitorvar = res['value']
+                        self.server.robotcontroller.writeVariable(monitorvar)
+
             # print(res['command'])
         except Exception as e:
             print(e.__class__, ':', e)
@@ -55,6 +59,7 @@ class connectionHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         print('Client connected')
+        
         self.server.robotcontroller.tcpCLient = self.request
 
         self.server.robotcontroller.clearVars()
