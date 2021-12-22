@@ -103,6 +103,11 @@ class RobotController:
             time.sleep(0.1)
         print("Monitor thread exit")
 
+    def addMonitorItems(self, newMonitorItems):
+
+        for monitorItem in newMonitorItems:
+            self.addMonitorItem(monitorItem)
+            
     def addMonitorItem(self, newMonitorItem):
         itemfound = False
         for monitoritem in self.monitorItems:

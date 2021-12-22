@@ -45,6 +45,9 @@ class connectionHandler(socketserver.BaseRequestHandler):
                     if command == 'AddMonitorItem':
                         monitoritem = res['value']
                         self.server.robotcontroller.addMonitorItem(monitoritem)
+                    if command == 'AddMonitorItems':
+                        monitoritems = res['values']
+                        self.server.robotcontroller.addMonitorItems(monitoritems)
                     if command == 'RemoveMonitorItem':
                         monitoritem = res['value']
                         self.server.robotcontroller.removeMonitorItem(monitoritem)
