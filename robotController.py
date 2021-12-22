@@ -15,9 +15,9 @@ class RobotController:
 
         self.robot = FS100(ip)
         self.stop_sign = threading.Semaphore()
-        self.monitorVars = []
-        self.terminateMonitorVars = False
-        self.thread = threading.Thread(target=self.monitorVarsWorker, args=())
+        self.monitorItems = []
+        self.terminateMonitor = False
+        self.thread = threading.Thread(target=self.monitorWorker, args=())
         self.thread.start()
         # set 'reset alarm' button state
         # self.is_alarmed()
@@ -25,7 +25,7 @@ class RobotController:
     def __exit__(self):
         # body of destructor
         print("Terminating monitor thread")
-        self.terminateMonitorVars = True
+        self.terminateMonitor = True
         self.thread.join()
         print("Monitor thread terminated")
 
@@ -33,64 +33,71 @@ class RobotController:
         pass
 
     def clearVars(self):
-        self.monitorVars.clear()
+        self.monitorItems.clear()
 
-    def monitorVarsWorker(self):
+    def read_Item(self, item):
+        if item['monitorType'] == "Variable":
+
+            varToRead = None
+
+            if item['varType'] == "Integer":
+                varToRead = FS100.Variable(
+                    FS100.VarType.INTEGER, int(item['varNum']))
+
+            if varToRead:
+
+                if FS100.ERROR_SUCCESS == self.robot.read_variable(varToRead):
+                    if item['varType'] == "String":
+                        val_str = varToRead.val.rstrip('\x00')
+                    elif item['varType'] == "RobotPosition":
+                        # val_str = "Data type: [{}]\n".format(str(var.val['data_type']))
+                        # val_str += "Form: [{}]\n".format(str(var.val['form']))
+                        # val_str += "Tool number: [{}]\n".format(str(var.val['tool_no']))
+                        # val_str += "User coordinate number: [{}]\n".format(str(var.val['user_coor_no']))
+                        # val_str += "Extended form: [{}]\n".format(str(var.val['extended_form']))
+                        # val_str += "Coordinated data: [{}], [{}], [{}], [{}], [{}], [{}], [{}]".format(
+                        #     str(var.val['pos'][0]),
+                        #     str(var.val['pos'][1]),
+                        #     str(var.val['pos'][2]),
+                        #     str(var.val['pos'][3]),
+                        #     str(var.val['pos'][4]),
+                        #     str(var.val['pos'][5]),
+                        #     str(var.val['pos'][6]))
+                        pass
+                    else:
+                        val_str = str(varToRead.val)
+
+                    # check if changed notify
+                    if val_str:
+                        item['varvalue'] = val_str
+                else:
+
+                    message = "Failed to read the variable. ({})".format(
+                        hex(self.robot.errno))
+
+                    errorMessage = {
+                        'command': 'readError',
+                        'varID': item['varID'],
+                        'message': message
+                    }
+                    errorMessageJson = json.dumps(errorMessage)
+                    if self.tcpCLient._closed == False:
+                        self.tcpCLient.send(errorMessageJson.encode())
+                    print(message)
+
+
+    def monitorWorker(self):
         """thread worker function"""
         print('Monitor vars thread started')
-        while self.terminateMonitorVars == False:
+        while self.terminateMonitor == False:
 
             try:
 
-                for monitorVar in self.monitorVars:
-                    varToRead = None
+                for monitorItem in self.monitorItems:
+                    
+                   self.read_Item(monitorItem)
 
-                    if monitorVar['varType'] == "Integer":
-                        varToRead = FS100.Variable(
-                            FS100.VarType.INTEGER, int(monitorVar['varNum']))
 
-                    if varToRead:
-
-                        if FS100.ERROR_SUCCESS == self.robot.read_variable(varToRead):
-                            if monitorVar['varType'] == "String":
-                                val_str = varToRead.val.rstrip('\x00')
-                            elif monitorVar['varType'] == "RobotPosition":
-                                # val_str = "Data type: [{}]\n".format(str(var.val['data_type']))
-                                # val_str += "Form: [{}]\n".format(str(var.val['form']))
-                                # val_str += "Tool number: [{}]\n".format(str(var.val['tool_no']))
-                                # val_str += "User coordinate number: [{}]\n".format(str(var.val['user_coor_no']))
-                                # val_str += "Extended form: [{}]\n".format(str(var.val['extended_form']))
-                                # val_str += "Coordinated data: [{}], [{}], [{}], [{}], [{}], [{}], [{}]".format(
-                                #     str(var.val['pos'][0]),
-                                #     str(var.val['pos'][1]),
-                                #     str(var.val['pos'][2]),
-                                #     str(var.val['pos'][3]),
-                                #     str(var.val['pos'][4]),
-                                #     str(var.val['pos'][5]),
-                                #     str(var.val['pos'][6]))
-                                pass
-                            else:
-                                val_str = str(varToRead.val)
-
-                            # check if changed notify
-                            if val_str:
-                                monitorVar['varvalue'] = val_str
-                        else:
-
-                            message = "Failed to read the variable. ({})".format(
-                                hex(self.robot.errno))
-
-                            errorMessage = {
-                                'command': 'readError',
-                                'varID': monitorVar['varID'],
-                                'message': message
-                            }
-                            errorMessageJson = json.dumps(errorMessage)
-                            if self.tcpCLient._closed == False:
-                                self.tcpCLient.send(errorMessageJson.encode())
-                            print(message)
-
-                # print(res['command'])
             except Exception as e:
                 print(e.__class__, ':', e)
                 print(traceback.format_exc())
@@ -100,19 +107,19 @@ class RobotController:
 
     def addMonitorVar(self, newMonitorVar):
         varfound = False
-        for monitorvar in self.monitorVars:
+        for monitorvar in self.monitorItems:
             if monitorvar['varID'] == newMonitorVar['varID']:
                 varfound = True
                 break
         if varfound == False:
-            self.monitorVars.append(newMonitorVar)
+            self.monitorItems.append(newMonitorVar)
         # vartype=monitorVar['type']
 
     def removeMonitorVar(self, monitorVarToRemove):
 
-        for monitorvar in self.monitorVars:
+        for monitorvar in self.monitorItems:
             if monitorvar['varID'] == monitorVarToRemove['varID']:
-                self.monitorVars.remove(monitorvar)
+                self.monitorItems.remove(monitorvar)
                 break
 
     def writeVariable(self, writeVar):
