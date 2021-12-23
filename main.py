@@ -33,12 +33,18 @@ class connectionHandler(socketserver.BaseRequestHandler):
     def processDataReceived(self, data):
         #info = '{"name": "Dave","City": "NY"}'
 
+        allcommandreceived = (data[len(data)-1]) == 13
+        self.alldatareceived += data.decode()
+        if self.alldatareceived.find('\r') == -1:
+            return
+
         try:
 
-            datasplited=data.decode().split('\n');
+            datasplited = self.alldatareceived.split('\r')
 
             for commanddata in datasplited:
-                if len(commanddata)==0: continue
+                if len(commanddata) == 0:
+                    continue
                 res = json.loads(commanddata)
                 if(res['command']):
                     command = res['command']
@@ -47,19 +53,26 @@ class connectionHandler(socketserver.BaseRequestHandler):
                         self.server.robotcontroller.addMonitorItem(monitoritem)
                     if command == 'AddMonitorItems':
                         monitoritems = res['values']
-                        self.server.robotcontroller.addMonitorItems(monitoritems)
+                        self.server.robotcontroller.addMonitorItems(
+                            monitoritems)
                     if command == 'RemoveMonitorItem':
                         monitoritem = res['value']
-                        self.server.robotcontroller.removeMonitorItem(monitoritem)
-                    if command == 'WriteVar':
+                        self.server.robotcontroller.removeMonitorItem(
+                            monitoritem)
+                    if command == 'WriteItem':
                         monitoritem = res['value']
                         self.server.robotcontroller.writeVariable(monitoritem)
-                    if command == 'readVar':
+                    if command == 'readItem':
                         monitoritem = res['value']
                         self.server.robotcontroller.writeVariable(monitoritem)
                     if command == 'readStatus':
                         # monitoritem = res['value']
                         self.server.robotcontroller.readStatus()
+
+            if allcommandreceived == False:
+                self.alldatareceived = commanddata[len(commanddata)-1]
+            else:
+                self.alldatareceived = ""
 
             # print(res['command'])
         except Exception as e:
@@ -68,42 +81,42 @@ class connectionHandler(socketserver.BaseRequestHandler):
 
     def handle(self):
         print('Client connected')
-        
+
+        self.alldatareceived = ""
+
         self.server.robotcontroller.tcpCLient = self.request
 
         self.server.robotcontroller.clearVars()
         try:
             while 1:
-                dataReceived = self.request.recv(1024)
+                dataReceived = self.request.recv(8192)
                 if not dataReceived:
                     break
                 print("Data received:", dataReceived)
                 self.processDataReceived(dataReceived)
         finally:
             pass
-        
+
         print("Client disconnected")
+
 
 def exit_gracefully(signum, robotcontroller):
     # restore the original signal handler as otherwise evil things will happen
     # in raw_input when CTRL+C is pressed, and our signal handler is not re-entrant
-    
+
     print("Ok ok, quitting")
-    robotcontroller.terminateMonitorVars=True
+    robotcontroller.terminateMonitorVars = True
     sys.exit(0)
 
-   
-    
+
 if __name__ == '__main__':
     # store the original SIGINT handler
-   
+
     robotcontroller = RobotController('192.168.250.101')
     # signal.signal(signal.SIGINT, partial(exit_gracefully, robotcontroller))
-    
-    
+
     socketserver.TCPServer.allow_reuse_address = 1
     tcpserver = socketserver.TCPServer(('0.0.0.0', 8881), connectionHandler)
     tcpserver.robotcontroller = robotcontroller
-        
+
     tcpserver.serve_forever()
-       

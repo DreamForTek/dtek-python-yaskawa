@@ -39,18 +39,18 @@ class RobotController:
         self.monitorItems.clear()
 
     def readItem(self, item):
-        varToRead = None
+        itemToRead = None
 
-        if item['varType'] == "Integer":
-            varToRead = FS100.Variable(
-                FS100.VarType.INTEGER, int(item['varNum']))
+        if item['itemType'] == "Integer":
+            itemToRead = FS100.Variable(
+                FS100.VarType.INTEGER, int(item['itemNum']))
 
-        if varToRead:
+        if itemToRead:
 
-            if FS100.ERROR_SUCCESS == self.robot.read_variable(varToRead):
-                if item['varType'] == "String":
-                    val_str = varToRead.val.rstrip('\x00')
-                elif item['varType'] == "RobotPosition":
+            if FS100.ERROR_SUCCESS == self.robot.read_variable(itemToRead):
+                if item['itemType'] == "String":
+                    val_str = itemToRead.val.rstrip('\x00')
+                elif item['itemType'] == "RobotPosition":
                     # val_str = "Data type: [{}]\n".format(str(var.val['data_type']))
                     # val_str += "Form: [{}]\n".format(str(var.val['form']))
                     # val_str += "Tool number: [{}]\n".format(str(var.val['tool_no']))
@@ -66,7 +66,7 @@ class RobotController:
                     #     str(var.val['pos'][6]))
                     pass
                 else:
-                    val_str = str(varToRead.val)
+                    val_str = str(itemToRead.val)
 
                 # check if changed notify
                 if val_str:
@@ -78,7 +78,7 @@ class RobotController:
 
                 errorMessage = {
                     'command': 'readError',
-                    'varID': item['varID'],
+                    'itemID': item['itemID'],
                     'message': message
                 }
                 errorMessageJson = json.dumps(errorMessage)
@@ -107,32 +107,33 @@ class RobotController:
         print("Monitor thread exit")
 
     def addMonitorItems(self, newMonitorItems):
-
+        self.monitorItems=[]
         for monitorItem in newMonitorItems:
             self.addMonitorItem(monitorItem)
 
     def addMonitorItem(self, newMonitorItem):
         itemfound = False
         for monitoritem in self.monitorItems:
-            if monitoritem['varID'] == newMonitorItem['varID']:
+            if monitoritem['id'] == newMonitorItem['id']:
                 itemfound = True
                 break
         if itemfound == False:
+            del newMonitorItem['itemValue']
             self.monitorItems.append(newMonitorItem)
         # vartype=monitorVar['type']
 
     def removeMonitorItem(self, monitorVarToRemove):
 
         for monitorvar in self.monitorItems:
-            if monitorvar['varID'] == monitorVarToRemove['varID']:
+            if monitorvar['id'] == monitorVarToRemove['id']:
                 self.monitorItems.remove(monitorvar)
                 break
 
     def writeVariable(self, writeVar):
         varToWrite = None
-        if writeVar['varType'] == "Integer":
+        if writeVar['itemType'] == "Integer":
             varToWrite = FS100.Variable(
-                FS100.VarType.INTEGER, int(writeVar['varNum']), int(writeVar['varValue']))
+                FS100.VarType.INTEGER, int(writeVar['itemNum']), int(writeVar['itemValue']))
 
             if varToWrite:
 
@@ -144,7 +145,7 @@ class RobotController:
 
                     errorMessage = {
                         'command': 'writeError',
-                        'varID': writeVar['varID'],
+                        'id': writeVar['id'],
                         'message': message
                     }
                     errorMessageJson = json.dumps(errorMessage)
