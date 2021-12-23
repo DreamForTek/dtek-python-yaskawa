@@ -17,6 +17,8 @@ class RobotController:
         self.stop_sign = threading.Semaphore()
         self.monitorItems = []
         self.terminateMonitor = False
+        self.monitorStatus = True
+
         self.thread = threading.Thread(target=self.monitorWorker, args=())
         self.thread.start()
         # set 'reset alarm' button state
@@ -26,6 +28,7 @@ class RobotController:
         # body of destructor
         print("Terminating monitor thread")
         self.terminateMonitor = True
+
         self.thread.join()
         print("Monitor thread terminated")
 
@@ -35,55 +38,52 @@ class RobotController:
     def clearVars(self):
         self.monitorItems.clear()
 
-    def read_Item(self, item):
-        if item['monitorType'] == "Variable":
+    def readItem(self, item):
+        varToRead = None
 
-            varToRead = None
+        if item['varType'] == "Integer":
+            varToRead = FS100.Variable(
+                FS100.VarType.INTEGER, int(item['varNum']))
 
-            if item['varType'] == "Integer":
-                varToRead = FS100.Variable(
-                    FS100.VarType.INTEGER, int(item['varNum']))
+        if varToRead:
 
-            if varToRead:
-
-                if FS100.ERROR_SUCCESS == self.robot.read_variable(varToRead):
-                    if item['varType'] == "String":
-                        val_str = varToRead.val.rstrip('\x00')
-                    elif item['varType'] == "RobotPosition":
-                        # val_str = "Data type: [{}]\n".format(str(var.val['data_type']))
-                        # val_str += "Form: [{}]\n".format(str(var.val['form']))
-                        # val_str += "Tool number: [{}]\n".format(str(var.val['tool_no']))
-                        # val_str += "User coordinate number: [{}]\n".format(str(var.val['user_coor_no']))
-                        # val_str += "Extended form: [{}]\n".format(str(var.val['extended_form']))
-                        # val_str += "Coordinated data: [{}], [{}], [{}], [{}], [{}], [{}], [{}]".format(
-                        #     str(var.val['pos'][0]),
-                        #     str(var.val['pos'][1]),
-                        #     str(var.val['pos'][2]),
-                        #     str(var.val['pos'][3]),
-                        #     str(var.val['pos'][4]),
-                        #     str(var.val['pos'][5]),
-                        #     str(var.val['pos'][6]))
-                        pass
-                    else:
-                        val_str = str(varToRead.val)
-
-                    # check if changed notify
-                    if val_str:
-                        item['varvalue'] = val_str
+            if FS100.ERROR_SUCCESS == self.robot.read_variable(varToRead):
+                if item['varType'] == "String":
+                    val_str = varToRead.val.rstrip('\x00')
+                elif item['varType'] == "RobotPosition":
+                    # val_str = "Data type: [{}]\n".format(str(var.val['data_type']))
+                    # val_str += "Form: [{}]\n".format(str(var.val['form']))
+                    # val_str += "Tool number: [{}]\n".format(str(var.val['tool_no']))
+                    # val_str += "User coordinate number: [{}]\n".format(str(var.val['user_coor_no']))
+                    # val_str += "Extended form: [{}]\n".format(str(var.val['extended_form']))
+                    # val_str += "Coordinated data: [{}], [{}], [{}], [{}], [{}], [{}], [{}]".format(
+                    #     str(var.val['pos'][0]),
+                    #     str(var.val['pos'][1]),
+                    #     str(var.val['pos'][2]),
+                    #     str(var.val['pos'][3]),
+                    #     str(var.val['pos'][4]),
+                    #     str(var.val['pos'][5]),
+                    #     str(var.val['pos'][6]))
+                    pass
                 else:
+                    val_str = str(varToRead.val)
 
-                    message = "Failed to read the variable. ({})".format(
-                        hex(self.robot.errno))
+                # check if changed notify
+                if val_str:
+                    item['varvalue'] = val_str
+            else:
 
-                    errorMessage = {
-                        'command': 'readError',
-                        'varID': item['varID'],
-                        'message': message
-                    }
-                    errorMessageJson = json.dumps(errorMessage)
-                    if self.tcpCLient._closed == False:
-                        self.tcpCLient.send(errorMessageJson.encode())
-                    print(message)
+                message = "Failed to read the variable. ({})".format(
+                    hex(self.robot.errno))
+
+                errorMessage = {
+                    'command': 'readError',
+                    'varID': item['varID'],
+                    'message': message
+                }
+                errorMessageJson = json.dumps(errorMessage)
+                self.sendToClient(errorMessageJson.encode())
+                print(message)
 
     def monitorWorker(self):
         """thread worker function"""
@@ -94,7 +94,10 @@ class RobotController:
 
                 for monitorItem in self.monitorItems:
 
-                    self.read_Item(monitorItem)
+                    self.readItem(monitorItem)
+
+                if self.monitorStatus:
+                    self.readStatus()
 
             except Exception as e:
                 print(e.__class__, ':', e)
@@ -107,7 +110,7 @@ class RobotController:
 
         for monitorItem in newMonitorItems:
             self.addMonitorItem(monitorItem)
-            
+
     def addMonitorItem(self, newMonitorItem):
         itemfound = False
         for monitoritem in self.monitorItems:
@@ -145,9 +148,14 @@ class RobotController:
                         'message': message
                     }
                     errorMessageJson = json.dumps(errorMessage)
-                    if self.tcpCLient._closed == False:
-                        self.tcpCLient.send(errorMessageJson.encode())
+                    self.sendToClient(errorMessageJson.encode())
                     print(message)
+
+    def sendToClient(self, message):
+        if hasattr(self, 'tcpCLient') == False:
+            return
+        if self.tcpCLient._closed == False:
+            self.tcpCLient.send(message)
 
     def readStatus(self):
         status = {}
@@ -158,8 +166,7 @@ class RobotController:
                 'message': status
             }
             statusMessageJson = json.dumps(statusMessage)
-            if self.tcpCLient._closed == False:
-                self.tcpCLient.send(statusMessageJson.encode())
+            self.sendToClient(statusMessageJson.encode())
 
         else:
             message = "Failed to read status. ({})".format(
@@ -170,8 +177,7 @@ class RobotController:
                 'message': message
             }
             errorMessageJson = json.dumps(errorMessage)
-            if self.tcpCLient._closed == False:
-                self.tcpCLient.send(errorMessageJson.encode())
+            self.sendToClient(errorMessageJson.encode())
             print(message)
 
     def on_reset_alarm(self):

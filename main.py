@@ -72,14 +72,17 @@ class connectionHandler(socketserver.BaseRequestHandler):
         self.server.robotcontroller.tcpCLient = self.request
 
         self.server.robotcontroller.clearVars()
-
-        while 1:
-            dataReceived = self.request.recv(1024)
-            if not dataReceived:
-                break
-            print("Data received:", dataReceived)
-            self.processDataReceived(dataReceived)
-            # self.request.send(dataReceived)
+        try:
+            while 1:
+                dataReceived = self.request.recv(1024)
+                if not dataReceived:
+                    break
+                print("Data received:", dataReceived)
+                self.processDataReceived(dataReceived)
+        finally:
+            pass
+        
+        print("Client disconnected")
 
 def exit_gracefully(signum, robotcontroller):
     # restore the original signal handler as otherwise evil things will happen
