@@ -48,24 +48,24 @@ class connectionHandler(socketserver.BaseRequestHandler):
                 res = json.loads(commanddata)
                 if(res['command']):
                     command = res['command']
-                    if command == 'AddMonitorItem':
+                    if command == 'addmonitoritem':
                         monitoritem = res['value']
                         self.server.robotcontroller.addMonitorItem(monitoritem)
-                    if command == 'AddMonitorItems':
+                    if command == 'addmonitoritems':
                         monitoritems = res['values']
                         self.server.robotcontroller.addMonitorItems(
                             monitoritems)
-                    if command == 'RemoveMonitorItem':
+                    if command == 'removemonitoritem':
                         monitoritem = res['value']
                         self.server.robotcontroller.removeMonitorItem(
                             monitoritem)
-                    if command == 'WriteItem':
+                    if command == 'writeitem':
                         monitoritem = res['value']
                         self.server.robotcontroller.writeVariable(monitoritem)
-                    if command == 'readItem':
-                        monitoritem = res['value']
-                        self.server.robotcontroller.writeVariable(monitoritem)
-                    if command == 'readStatus':
+                    # if command == 'readitem':
+                    #     monitoritem = res['value']
+                    #     self.server.robotcontroller.readVariable(monitoritem)
+                    if command == 'readstatus':
                         # monitoritem = res['value']
                         self.server.robotcontroller.readStatus()
 

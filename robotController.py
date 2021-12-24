@@ -77,9 +77,10 @@ class RobotController:
                     hex(self.robot.errno))
 
                 errorMessage = {
-                    'command': 'readError',
-                    'itemID': item['itemID'],
-                    'message': message
+                    "command": "readitem",
+                    "status": "readerror",
+                    "id": item['id'],
+                    "message": message
                 }
                 errorMessageJson = json.dumps(errorMessage)
                 self.sendToClient(errorMessageJson.encode())
@@ -107,6 +108,7 @@ class RobotController:
         print("Monitor thread exit")
 
     def addMonitorItems(self, newMonitorItems):
+        print("Reset monitor words")
         self.monitorItems=[]
         for monitorItem in newMonitorItems:
             self.addMonitorItem(monitorItem)
@@ -120,13 +122,15 @@ class RobotController:
         if itemfound == False:
             del newMonitorItem['itemValue']
             self.monitorItems.append(newMonitorItem)
-        # vartype=monitorVar['type']
+            print("Adding monitor item:",repr(newMonitorItem))
 
     def removeMonitorItem(self, monitorVarToRemove):
 
         for monitorvar in self.monitorItems:
             if monitorvar['id'] == monitorVarToRemove['id']:
                 self.monitorItems.remove(monitorvar)
+
+                print("Removed monitor item:",repr(monitorVarToRemove))
                 break
 
     def writeVariable(self, writeVar):
@@ -138,15 +142,23 @@ class RobotController:
             if varToWrite:
 
                 if FS100.ERROR_SUCCESS == self.robot.write_variable(varToWrite):
-                    pass
+                    
+                    okMessage = {
+                        "command": "writeitem",
+                        "status": "OK",
+                        "id": writeVar['id'],
+                        "message": ""
+                    }
+                    self.sendToClient(okMessage.encode())
                 else:
                     message = "Failed to write the variable. ({})".format(
                         hex(self.robot.errno))
 
                     errorMessage = {
-                        'command': 'writeError',
-                        'id': writeVar['id'],
-                        'message': message
+                        "command": "writeitem",
+                        "status": "NOK",
+                        "id": writeVar['id'],
+                        "message": message
                     }
                     errorMessageJson = json.dumps(errorMessage)
                     self.sendToClient(errorMessageJson.encode())
@@ -163,8 +175,9 @@ class RobotController:
         if FS100.ERROR_SUCCESS == self.robot.get_status(status):
 
             statusMessage = {
-                'command': 'readStatus',
-                'message': status
+                "command": "readstatus",
+                "status": "OK",
+                "message": status
             }
             statusMessageJson = json.dumps(statusMessage)
             self.sendToClient(statusMessageJson.encode())
@@ -174,8 +187,9 @@ class RobotController:
                 hex(self.robot.errno))
 
             errorMessage = {
-                'command': 'readStatusError',
-                'message': message
+                "command": "readstatus",
+                "status": "NOK",
+                "message": message
             }
             errorMessageJson = json.dumps(errorMessage)
             self.sendToClient(errorMessageJson.encode())
