@@ -8,6 +8,7 @@ import threading
 import time
 import traceback
 import json
+import random
 
 
 class RobotController:
@@ -70,6 +71,17 @@ class RobotController:
 
                 # check if changed notify
                 if val_str:
+                    currentValue = item['varvalue']
+                    if (val_str != currentValue) or item['notifyOnChange'] == False:
+                        message = {
+                            "command": "readitem",
+                            "status": "valuereaded",
+                            "id": item['id'],
+                            "message": val_str
+                        }
+                        messageJson = json.dumps(message)
+                        self.sendToClient(messageJson.encode())
+
                     item['varvalue'] = val_str
             else:
 
@@ -95,11 +107,23 @@ class RobotController:
 
                 for monitorItem in self.monitorItems:
 
+                    # Debug
+                    message = {
+                        "command": "readitem",
+                        "status": "valuereaded",
+                        "id": monitorItem['id'],
+                        "value": str(random.randint(0,9))
+                    }
+                    messageJson = json.dumps(message)
+                    self.sendToClient(messageJson.encode())
+
                     self.readItem(monitorItem)
 
                 if self.monitorStatus:
                     self.readStatus()
-
+                
+                time.sleep(0.100)
+                
             except Exception as e:
                 print(e.__class__, ':', e)
                 print(traceback.format_exc())
@@ -109,7 +133,7 @@ class RobotController:
 
     def addMonitorItems(self, newMonitorItems):
         print("Reset monitor words")
-        self.monitorItems=[]
+        self.monitorItems = []
         for monitorItem in newMonitorItems:
             self.addMonitorItem(monitorItem)
 
@@ -122,7 +146,7 @@ class RobotController:
         if itemfound == False:
             del newMonitorItem['itemValue']
             self.monitorItems.append(newMonitorItem)
-            print("Adding monitor item:",repr(newMonitorItem))
+            print("Adding monitor item:", repr(newMonitorItem))
 
     def removeMonitorItem(self, monitorVarToRemove):
 
@@ -130,7 +154,7 @@ class RobotController:
             if monitorvar['id'] == monitorVarToRemove['id']:
                 self.monitorItems.remove(monitorvar)
 
-                print("Removed monitor item:",repr(monitorVarToRemove))
+                print("Removed monitor item:", repr(monitorVarToRemove))
                 break
 
     def writeVariable(self, writeVar):
@@ -142,7 +166,7 @@ class RobotController:
             if varToWrite:
 
                 if FS100.ERROR_SUCCESS == self.robot.write_variable(varToWrite):
-                    
+
                     okMessage = {
                         "command": "writeitem",
                         "status": "OK",
