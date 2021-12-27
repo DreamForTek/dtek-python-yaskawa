@@ -12,7 +12,7 @@ import random
 
 
 class RobotController:
-    def __init__(self, ip='192.168.250.101'):
+    def __init__(self, ip="192.168.250.101"):
 
         self.robot = FS100(ip)
         self.stop_sign = threading.Semaphore()
@@ -41,17 +41,17 @@ class RobotController:
 
     def readItem(self, item):
         itemToRead = None
-
-        if item['itemType'] == "Integer":
-            itemToRead = FS100.Variable(
-                FS100.VarType.INTEGER, int(item['itemNum']))
+        if item["itemNum"] == "":
+            return
+        if item["itemType"] == "Integer":
+            itemToRead = FS100.Variable(FS100.VarType.INTEGER, int(item["itemNum"]))
 
         if itemToRead:
 
             if FS100.ERROR_SUCCESS == self.robot.read_variable(itemToRead):
-                if item['itemType'] == "String":
-                    val_str = itemToRead.val.rstrip('\x00')
-                elif item['itemType'] == "RobotPosition":
+                if item["itemType"] == "String":
+                    val_str = itemToRead.val.rstrip("\x00")
+                elif item["itemType"] == "RobotPosition":
                     # val_str = "Data type: [{}]\n".format(str(var.val['data_type']))
                     # val_str += "Form: [{}]\n".format(str(var.val['form']))
                     # val_str += "Tool number: [{}]\n".format(str(var.val['tool_no']))
@@ -71,28 +71,33 @@ class RobotController:
 
                 # check if changed notify
                 if val_str:
-                    currentValue = item['varvalue']
-                    if (val_str != currentValue) or item['notifyOnChange'] == False:
+
+                    if ("itemValue" in item) == False:
+                        item["itemValue"] = ""
+
+                    currentValue = item["itemValue"]
+                    if (val_str != currentValue) or item["notifyOnChange"] == False:
                         message = {
                             "command": "readitem",
                             "status": "valuereaded",
-                            "id": item['id'],
-                            "message": val_str
+                            "id": item["id"],
+                            "message": val_str,
                         }
                         messageJson = json.dumps(message)
                         self.sendToClient(messageJson.encode())
 
-                    item['varvalue'] = val_str
+                    item["itemValue"] = val_str
             else:
 
                 message = "Failed to read the variable. ({})".format(
-                    hex(self.robot.errno))
+                    hex(self.robot.errno)
+                )
 
                 errorMessage = {
                     "command": "readitem",
                     "status": "readerror",
-                    "id": item['id'],
-                    "message": message
+                    "id": item["id"],
+                    "message": message,
                 }
                 errorMessageJson = json.dumps(errorMessage)
                 self.sendToClient(errorMessageJson.encode())
@@ -100,32 +105,32 @@ class RobotController:
 
     def monitorWorker(self):
         """thread worker function"""
-        print('Monitor vars thread started')
+        print("Monitor vars thread started")
         while self.terminateMonitor == False:
 
             try:
 
                 for monitorItem in self.monitorItems:
 
-                    # Debug
-                    message = {
-                        "command": "readitem",
-                        "status": "valuereaded",
-                        "id": monitorItem['id'],
-                        "value": str(random.randint(0,9))
-                    }
-                    messageJson = json.dumps(message)
-                    self.sendToClient(messageJson.encode())
+                    # # Debug
+                    # message = {
+                    #     "command": "readitem",
+                    #     "status": "valuereaded",
+                    #     "id": monitorItem['id'],
+                    #     "value": str(random.randint(0,9))
+                    # }
+                    # messageJson = json.dumps(message)
+                    # self.sendToClient(messageJson.encode())
 
                     self.readItem(monitorItem)
 
                 if self.monitorStatus:
                     self.readStatus()
-                
-                time.sleep(0.100)
-                
+
+                time.sleep(1)
+
             except Exception as e:
-                print(e.__class__, ':', e)
+                print(e.__class__, ":", e)
                 print(traceback.format_exc())
 
             time.sleep(0.1)
@@ -140,18 +145,18 @@ class RobotController:
     def addMonitorItem(self, newMonitorItem):
         itemfound = False
         for monitoritem in self.monitorItems:
-            if monitoritem['id'] == newMonitorItem['id']:
+            if monitoritem["id"] == newMonitorItem["id"]:
                 itemfound = True
                 break
         if itemfound == False:
-            del newMonitorItem['itemValue']
+            del newMonitorItem["itemValue"]
             self.monitorItems.append(newMonitorItem)
             print("Adding monitor item:", repr(newMonitorItem))
 
     def removeMonitorItem(self, monitorVarToRemove):
 
         for monitorvar in self.monitorItems:
-            if monitorvar['id'] == monitorVarToRemove['id']:
+            if monitorvar["id"] == monitorVarToRemove["id"]:
                 self.monitorItems.remove(monitorvar)
 
                 print("Removed monitor item:", repr(monitorVarToRemove))
@@ -159,9 +164,12 @@ class RobotController:
 
     def writeVariable(self, writeVar):
         varToWrite = None
-        if writeVar['itemType'] == "Integer":
+        if writeVar["itemType"] == "Integer":
             varToWrite = FS100.Variable(
-                FS100.VarType.INTEGER, int(writeVar['itemNum']), int(writeVar['itemValue']))
+                FS100.VarType.INTEGER,
+                int(writeVar["itemNum"]),
+                int(writeVar["itemValue"]),
+            )
 
             if varToWrite:
 
@@ -170,50 +178,47 @@ class RobotController:
                     okMessage = {
                         "command": "writeitem",
                         "status": "OK",
-                        "id": writeVar['id'],
-                        "message": ""
+                        "id": writeVar["id"],
+                        "message": "",
                     }
                     self.sendToClient(okMessage.encode())
                 else:
                     message = "Failed to write the variable. ({})".format(
-                        hex(self.robot.errno))
+                        hex(self.robot.errno)
+                    )
 
                     errorMessage = {
                         "command": "writeitem",
                         "status": "NOK",
-                        "id": writeVar['id'],
-                        "message": message
+                        "id": writeVar["id"],
+                        "message": message,
                     }
                     errorMessageJson = json.dumps(errorMessage)
                     self.sendToClient(errorMessageJson.encode())
                     print(message)
 
     def sendToClient(self, message):
-        if hasattr(self, 'tcpCLient') == False:
+        if hasattr(self, "tcpCLient") == False:
             return
         if self.tcpCLient._closed == False:
+            message = message + "\r"
             self.tcpCLient.send(message)
 
     def readStatus(self):
         status = {}
         if FS100.ERROR_SUCCESS == self.robot.get_status(status):
 
-            statusMessage = {
-                "command": "readstatus",
-                "status": "OK",
-                "message": status
-            }
+            statusMessage = {"command": "readstatus", "status": "OK", "message": status}
             statusMessageJson = json.dumps(statusMessage)
             self.sendToClient(statusMessageJson.encode())
 
         else:
-            message = "Failed to read status. ({})".format(
-                hex(self.robot.errno))
+            message = "Failed to read status. ({})".format(hex(self.robot.errno))
 
             errorMessage = {
                 "command": "readstatus",
                 "status": "NOK",
-                "message": message
+                "message": message,
             }
             errorMessageJson = json.dumps(errorMessage)
             self.sendToClient(errorMessageJson.encode())
@@ -229,23 +234,29 @@ class RobotController:
         pos_info = {}
         robot_no = 1
         if FS100.ERROR_SUCCESS == self.robot.read_position(pos_info, robot_no):
-            x, y, z, rx, ry, rz, re = pos_info['pos']
-            str = "CURRENT POSITION\n" +\
-                  "COORDINATE {:12s} TOOL:{:02d}\n".format('ROBOT', pos_info['tool_no']) +\
-                  "R{} :X     {:4d}.{:03d} mm       Rx   {:4d}.{:04d} deg.\n".format(robot_no,
-                                                                                     x // 1000, x % 1000, rx // 10000, rx % 10000) +\
-                  "    Y     {:4d}.{:03d} mm       Ry   {:4d}.{:04d} deg.\n".format(
-                      y // 1000, y % 1000, ry // 10000, ry % 10000) +\
-                  "    Z     {:4d}.{:03d} mm       Rz   {:4d}.{:04d} deg.\n".format(
-                      z // 1000, z % 1000, rz // 10000, rz % 10000) +\
-                  "                            Re   {:4d}.{:04d} deg.\n".format(
-                      re // 10000, re % 10000)
+            x, y, z, rx, ry, rz, re = pos_info["pos"]
+            str = (
+                "CURRENT POSITION\n"
+                + "COORDINATE {:12s} TOOL:{:02d}\n".format("ROBOT", pos_info["tool_no"])
+                + "R{} :X     {:4d}.{:03d} mm       Rx   {:4d}.{:04d} deg.\n".format(
+                    robot_no, x // 1000, x % 1000, rx // 10000, rx % 10000
+                )
+                + "    Y     {:4d}.{:03d} mm       Ry   {:4d}.{:04d} deg.\n".format(
+                    y // 1000, y % 1000, ry // 10000, ry % 10000
+                )
+                + "    Z     {:4d}.{:03d} mm       Rz   {:4d}.{:04d} deg.\n".format(
+                    z // 1000, z % 1000, rz // 10000, rz % 10000
+                )
+                + "                            Re   {:4d}.{:04d} deg.\n".format(
+                    re // 10000, re % 10000
+                )
+            )
 
     def is_alarmed(self):
         alarmed = False
         status = {}
         if FS100.ERROR_SUCCESS == self.robot.get_status(status):
-            alarmed = status['alarming']
+            alarmed = status["alarming"]
         # if alarmed:
         #     self.reset_alarm.configure(state='normal')
         # else:
@@ -260,33 +271,33 @@ class RobotController:
         x, y, z, rx, ry, rz, re = 0, 0, 0, 0, 0, 0, 0
 
         axis = event.widget.cget("text")
-        if axis == 'X+':
+        if axis == "X+":
             x = MAX_XYZ
-        elif axis == 'X-':
+        elif axis == "X-":
             x = -MAX_XYZ
-        elif axis == 'Y+':
+        elif axis == "Y+":
             y = MAX_XYZ
-        elif axis == 'Y-':
+        elif axis == "Y-":
             y = -MAX_XYZ
-        elif axis == 'Z+':
+        elif axis == "Z+":
             z = MAX_XYZ
-        elif axis == 'Z-':
+        elif axis == "Z-":
             z = -MAX_XYZ
-        elif axis == 'Rx+':
+        elif axis == "Rx+":
             rx = MAX_R_XYZE
-        elif axis == 'Rx-':
+        elif axis == "Rx-":
             rx = -MAX_R_XYZE
-        elif axis == 'Ry+':
+        elif axis == "Ry+":
             ry = MAX_R_XYZE
-        elif axis == 'Ry-':
+        elif axis == "Ry-":
             ry = -MAX_R_XYZE
-        elif axis == 'Rz+':
+        elif axis == "Rz+":
             rz = MAX_R_XYZE
-        elif axis == 'Rz-':
+        elif axis == "Rz-":
             rz = -MAX_R_XYZE
-        elif axis == 'E+':
+        elif axis == "E+":
             re = MAX_R_XYZE
-        elif axis == 'E-':
+        elif axis == "E-":
             re = -MAX_R_XYZE
 
         if x != 0 or y != 0 or z != 0:
@@ -299,13 +310,17 @@ class RobotController:
 
         status = {}
         if FS100.ERROR_SUCCESS == self.robot.get_status(status):
-            if not status['servo_on']:
-                self.robot.switch_power(
-                    FS100.POWER_TYPE_SERVO, FS100.POWER_SWITCH_ON)
+            if not status["servo_on"]:
+                self.robot.switch_power(FS100.POWER_TYPE_SERVO, FS100.POWER_SWITCH_ON)
 
         self.pos_updater = threading.Thread(target=self.update_pos)
-        if FS100.ERROR_SUCCESS == self.robot.one_move(FS100.MOVE_TYPE_LINEAR_INCREMENTAL_POS,
-                                                      FS100.MOVE_COORDINATE_SYSTEM_ROBOT, speed_class, speed, pos):
+        if FS100.ERROR_SUCCESS == self.robot.one_move(
+            FS100.MOVE_TYPE_LINEAR_INCREMENTAL_POS,
+            FS100.MOVE_COORDINATE_SYSTEM_ROBOT,
+            speed_class,
+            speed,
+            pos,
+        ):
             time.sleep(0.1)  # robot may not update the status
             if not self.is_alarmed():
                 self.pos_updater.start()
