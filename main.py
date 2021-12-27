@@ -62,9 +62,9 @@ class connectionHandler(socketserver.BaseRequestHandler):
                     if command == 'writeitem':
                         monitoritem = res['value']
                         self.server.robotcontroller.writeVariable(monitoritem)
-                    # if command == 'readitem':
-                    #     monitoritem = res['value']
-                    #     self.server.robotcontroller.readVariable(monitoritem)
+                    if command == 'updatemonitoritem':
+                        monitoritem = res['value']
+                        self.server.robotcontroller.updateMonitoritem(monitoritem)
                     if command == 'readstatus':
                         # monitoritem = res['value']
                         self.server.robotcontroller.readStatus()

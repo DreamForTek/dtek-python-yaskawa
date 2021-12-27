@@ -9,7 +9,7 @@ import time
 import traceback
 import json
 import random
-
+import copy
 
 class RobotController:
     def __init__(self, ip="192.168.250.101"):
@@ -84,7 +84,7 @@ class RobotController:
                             "message": val_str,
                         }
                         messageJson = json.dumps(message)
-                        self.sendToClient(messageJson.encode())
+                        self.sendToClient(messageJson)
 
                     item["itemValue"] = val_str
             else:
@@ -100,7 +100,7 @@ class RobotController:
                     "message": message,
                 }
                 errorMessageJson = json.dumps(errorMessage)
-                self.sendToClient(errorMessageJson.encode())
+                self.sendToClient(errorMessageJson)
                 print(message)
 
     def monitorWorker(self):
@@ -120,14 +120,14 @@ class RobotController:
                     #     "value": str(random.randint(0,9))
                     # }
                     # messageJson = json.dumps(message)
-                    # self.sendToClient(messageJson.encode())
+                    # self.sendToClient(messageJson)
 
                     self.readItem(monitorItem)
 
                 if self.monitorStatus:
                     self.readStatus()
 
-                time.sleep(1)
+                time.sleep(0.1)
 
             except Exception as e:
                 print(e.__class__, ":", e)
@@ -162,6 +162,24 @@ class RobotController:
                 print("Removed monitor item:", repr(monitorVarToRemove))
                 break
 
+    def updateMonitoritem(self, monitorVarToUpdate):
+
+        # for monitorvar in self.monitorItems:
+        length = len(self.monitorItems)
+        for i in range(length):
+            monitorvar=self.monitorItems[i]
+            if monitorvar["id"] == monitorVarToUpdate["id"]:
+                # self.monitorItems.remove(monitorvar)
+
+                # del monitorVarToUpdate['itemValue']
+
+                print("Updated monitor item:", repr(monitorVarToUpdate))
+                
+                self.monitorItems[i] = copy.copy(monitorVarToUpdate)
+                
+                break
+
+
     def writeVariable(self, writeVar):
         varToWrite = None
         if writeVar["itemType"] == "Integer":
@@ -179,9 +197,12 @@ class RobotController:
                         "command": "writeitem",
                         "status": "OK",
                         "id": writeVar["id"],
-                        "message": "",
+                        "message": writeVar["itemValue"],
                     }
-                    self.sendToClient(okMessage.encode())
+                    
+                    okMessageJson = json.dumps(okMessage)
+
+                    self.sendToClient(okMessageJson)
                 else:
                     message = "Failed to write the variable. ({})".format(
                         hex(self.robot.errno)
@@ -194,15 +215,15 @@ class RobotController:
                         "message": message,
                     }
                     errorMessageJson = json.dumps(errorMessage)
-                    self.sendToClient(errorMessageJson.encode())
+                    self.sendToClient(errorMessageJson)
                     print(message)
 
     def sendToClient(self, message):
         if hasattr(self, "tcpCLient") == False:
             return
         if self.tcpCLient._closed == False:
-            message = message + "\r"
-            self.tcpCLient.send(message)
+            message = message+'\r'
+            self.tcpCLient.send(message.encode())
 
     def readStatus(self):
         status = {}
@@ -210,7 +231,7 @@ class RobotController:
 
             statusMessage = {"command": "readstatus", "status": "OK", "message": status}
             statusMessageJson = json.dumps(statusMessage)
-            self.sendToClient(statusMessageJson.encode())
+            self.sendToClient(statusMessageJson)
 
         else:
             message = "Failed to read status. ({})".format(hex(self.robot.errno))
@@ -221,7 +242,7 @@ class RobotController:
                 "message": message,
             }
             errorMessageJson = json.dumps(errorMessage)
-            self.sendToClient(errorMessageJson.encode())
+            self.sendToClient(errorMessageJson)
             print(message)
 
     def on_reset_alarm(self):
