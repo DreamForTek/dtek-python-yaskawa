@@ -68,7 +68,9 @@ class connectionHandler(socketserver.BaseRequestHandler):
                     if command == 'readstatus':
                         # monitoritem = res['value']
                         self.server.robotcontroller.readStatus()
-
+                    if command == 'getjobs':
+                        # monitoritem = res['value']
+                        self.server.robotcontroller.getJobs()
             if allcommandreceived == False:
                 self.alldatareceived = commanddata[len(commanddata)-1]
             else:

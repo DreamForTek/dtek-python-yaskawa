@@ -245,6 +245,27 @@ class RobotController:
             self.sendToClient(errorMessageJson)
             print(message)
 
+    def getJobs(self):
+        jobs = []
+        message = {}
+        if FS100.ERROR_SUCCESS != self.robot.get_file_list('*.JBI', jobs):
+            
+            message = "Failed to get jobs list. ({})".format(hex(self.robot.errno))
+
+            errorMessage = {
+                "command": "getjobs",
+                "status": "NOK",
+                "message": message,
+            }
+            errorMessageJson = json.dumps(errorMessage)
+            self.sendToClient(errorMessageJson)
+            print(message)
+        else:
+            message = {"command": "getjobs", "status": "OK", "message": jobs}
+            messageJson = json.dumps(message)
+            self.sendToClient(messageJson)
+
+
     def on_reset_alarm(self):
         self.robot.reset_alarm(FS100.RESET_ALARM_TYPE_ALARM)
         time.sleep(0.1)
