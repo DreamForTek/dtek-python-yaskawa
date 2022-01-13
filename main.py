@@ -74,6 +74,13 @@ class connectionHandler(socketserver.BaseRequestHandler):
                     if command == 'startjob':
                         jobname = res['value']
                         self.server.robotcontroller.startJob(jobname)
+                    if command == 'selectcycle':
+                        cycletype = res['value']
+                        self.server.robotcontroller.selectCycle(cycletype)
+                    if command == 'playjob':
+                        self.server.robotcontroller.playSelected()
+                    if command == 'softhold':
+                        self.server.robotcontroller.softHold()
 
             if allcommandreceived == False:
                 self.alldatareceived = commanddata[len(commanddata)-1]
@@ -93,6 +100,8 @@ class connectionHandler(socketserver.BaseRequestHandler):
         self.server.robotcontroller.tcpCLient = self.request
 
         self.server.robotcontroller.clearVars()
+
+
         try:
             while 1:
                 dataReceived = self.request.recv(8192)

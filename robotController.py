@@ -24,6 +24,7 @@ class RobotController:
         self.isAlarmed = False
         self.isServoOn = False
         self.isRunning = False
+        self.onHold = False
 
         self.thread = threading.Thread(target=self.monitorWorker, args=())
         self.thread.start()
@@ -51,6 +52,9 @@ class RobotController:
         if item["itemType"] == "Integer":
             itemToRead = FS100.Variable(
                 FS100.VarType.INTEGER, int(item["itemNum"]))
+        if item["itemType"] == "Byte":
+            itemToRead = FS100.Variable(
+                FS100.VarType.BYTE, int(item["itemNum"]))
 
         if itemToRead:
 
@@ -118,20 +122,12 @@ class RobotController:
 
                 for monitorItem in self.monitorItems:
 
-                    # # Debug
-                    # message = {
-                    #     "command": "readitem",
-                    #     "status": "valuereaded",
-                    #     "id": monitorItem['id'],
-                    #     "value": str(random.randint(0,9))
-                    # }
-                    # messageJson = json.dumps(message)
-                    # self.sendToClient(messageJson)
-
                     self.readItem(monitorItem)
 
                 if self.monitorStatus:
                     self.readStatus()
+                    self.readJobInfo()
+                    # self.getAlarmStatus()
 
                 time.sleep(0.1)
 
@@ -193,35 +189,47 @@ class RobotController:
                 int(writeVar["itemNum"]),
                 int(writeVar["itemValue"]),
             )
+        if writeVar["itemType"] == "Register":
+            varToWrite = FS100.Variable(
+                FS100.VarType.REGISTER,
+                int(writeVar["itemNum"]),
+                int(writeVar["itemValue"]),
+            )
+        if writeVar["itemType"] == "Byte":
+            varToWrite = FS100.Variable(
+                FS100.VarType.BYTE,
+                int(writeVar["itemNum"]),
+                int(writeVar["itemValue"]),
+            )
 
-            if varToWrite:
+        if varToWrite:
 
-                if FS100.ERROR_SUCCESS == self.robot.write_variable(varToWrite):
+            if FS100.ERROR_SUCCESS == self.robot.write_variable(varToWrite):
 
-                    okMessage = {
-                        "command": "writeitem",
-                        "status": "OK",
-                        "id": writeVar["id"],
-                        "message": writeVar["itemValue"],
-                    }
+                okMessage = {
+                    "command": "writeitem",
+                    "status": "OK",
+                    "id": writeVar["id"],
+                    "message": writeVar["itemValue"],
+                }
 
-                    okMessageJson = json.dumps(okMessage)
+                okMessageJson = json.dumps(okMessage)
 
-                    self.sendToClient(okMessageJson)
-                else:
-                    message = "Failed to write the variable. ({})".format(
-                        hex(self.robot.errno)
-                    )
+                self.sendToClient(okMessageJson)
+            else:
+                message = "Failed to write the variable. ({})".format(
+                    hex(self.robot.errno)
+                )
 
-                    errorMessage = {
-                        "command": "writeitem",
-                        "status": "NOK",
-                        "id": writeVar["id"],
-                        "message": message,
-                    }
-                    errorMessageJson = json.dumps(errorMessage)
-                    self.sendToClient(errorMessageJson)
-                    print(message)
+                errorMessage = {
+                    "command": "writeitem",
+                    "status": "NOK",
+                    "id": writeVar["id"],
+                    "message": message,
+                }
+                errorMessageJson = json.dumps(errorMessage)
+                self.sendToClient(errorMessageJson)
+                print(message)
 
     def sendToClient(self, message):
         if hasattr(self, "tcpCLient") == False:
@@ -234,6 +242,12 @@ class RobotController:
         status = {}
         if FS100.ERROR_SUCCESS == self.robot.get_status(status):
 
+            onOld = status["hold_by_pendant"] or status["hold_externally"] or status["hold_by_cmd"] or status["teach"]
+            if onOld:
+                self.onHold = True
+
+            status["on_hold"] = self.onHold
+
             statusMessage = {"command": "readstatus",
                              "status": "OK", "message": status}
             statusMessageJson = json.dumps(statusMessage)
@@ -242,6 +256,7 @@ class RobotController:
             self.isRunning = status["running"]
 
             self.sendToClient(statusMessageJson)
+            # print(status)
 
         else:
             message = "Failed to read status. ({})".format(
@@ -255,6 +270,30 @@ class RobotController:
             errorMessageJson = json.dumps(errorMessage)
             self.sendToClient(errorMessageJson)
             print(message)
+
+    def readJobInfo(self):
+        info = {}
+        if FS100.ERROR_SUCCESS == self.robot.read_executing_job_info(info):
+
+            statusMessage = {"command": "jobinfo",
+                             "status": "OK", "message": info}
+            statusMessageJson = json.dumps(statusMessage)
+            # print(statusMessageJson)
+
+            self.sendToClient(statusMessageJson)
+
+        else:
+            message = "Failed to read job info. ({})".format(
+                hex(self.robot.errno))
+
+            errorMessage = {
+                "command": "jobinfo",
+                "status": "NOK",
+                "message": message,
+            }
+            errorMessageJson = json.dumps(errorMessage)
+            self.sendToClient(errorMessageJson)
+            # print(message)
 
     def getJobs(self):
         jobs = []
@@ -277,6 +316,93 @@ class RobotController:
             messageJson = json.dumps(message)
             self.sendToClient(messageJson)
 
+    def selectCycle(self, cycletype):
+
+        message = {}
+
+        if(cycletype == "CYCLE_TYPE_STEP"):
+            fs100cycletype = FS100.CYCLE_TYPE_STEP
+        elif(cycletype == "CYCLE_TYPE_ONE_CYCLE"):
+            fs100cycletype = FS100.CYCLE_TYPE_ONE_CYCLE
+        else:
+            fs100cycletype = FS100.CYCLE_TYPE_CONTINUOUS
+            self.onHold = False
+
+        if FS100.ERROR_SUCCESS != self.robot.select_cycle(fs100cycletype):
+            message = "failed select cycle type, err={}".format(
+                hex(self.robot.errno))
+
+            errorMessage = {
+                "command": "selectcycle",
+                "status": "NOK",
+                "message": message,
+            }
+            errorMessageJson = json.dumps(errorMessage)
+            self.sendToClient(errorMessageJson)
+            print(message)
+
+        else:
+            message = {"command": "selectcycle",
+                       "status": "OK", "message": ""}
+            messageJson = json.dumps(message)
+            self.sendToClient(messageJson)
+
+    def getAlarmStatus(self):
+        alarm = {}
+        if FS100.ERROR_SUCCESS == self.robot.get_last_alarm(alarm):
+            print("the last alarm: code={}, data={}, type={}, time={}, name={}"
+                  .format(hex(alarm['code']), alarm['data'], alarm['type'], alarm['time'], alarm['name']))
+
+    def softHold(self):
+
+        message = {}
+
+        self.robot.switch_power(FS100.POWER_TYPE_HOLD, FS100.POWER_SWITCH_ON)
+        # a hold off in case we switch to teach/play mode
+        if FS100.ERROR_SUCCESS != self.robot.switch_power(FS100.POWER_TYPE_HOLD, FS100.POWER_SWITCH_OFF):
+            print("failed put on hold, err={}".format(
+                hex(self.robot.errno)))
+            time.sleep(2)
+        else:
+
+            message = {"command": "softhold",
+                       "status": "OK", "message": "started"}
+            messageJson = json.dumps(message)
+            self.onHold = False
+            self.sendToClient(messageJson)
+
+    def playSelected(self):
+
+        message = {}
+
+        self.robot.switch_power(FS100.POWER_TYPE_HOLD, FS100.POWER_SWITCH_ON)
+        self.robot.switch_power(FS100.POWER_TYPE_HOLD, FS100.POWER_SWITCH_OFF)
+
+        if FS100.ERROR_SUCCESS != self.robot.switch_power(FS100.POWER_TYPE_SERVO, FS100.POWER_SWITCH_ON):
+            print("failed turning on servo power supply, err={}".format(
+                hex(self.robot.errno)))
+            time.sleep(2)
+        elif FS100.ERROR_SUCCESS != self.robot.play_job():
+
+            message = "Failed to play job. ({})".format(
+                hex(self.robot.errno))
+
+            errorMessage = {
+                "command": "playselected",
+                "status": "NOK",
+                "message": message,
+            }
+            errorMessageJson = json.dumps(errorMessage)
+            self.sendToClient(errorMessageJson)
+            print(message)
+        else:
+
+            message = {"command": "playselected",
+                       "status": "OK", "message": "started"}
+            messageJson = json.dumps(message)
+            self.onHold = False
+            self.sendToClient(messageJson)
+
     def startJob(self, jobname):
 
         message = {}
@@ -289,7 +415,7 @@ class RobotController:
         else:
             return
 
-        if jobname.find('_RSTART')<0:
+        if jobname.find('_RSTART') < 0:
             message = "Failed to start job.(Invalid remote start job selected)"
 
             errorMessage = {
@@ -354,6 +480,7 @@ class RobotController:
                     message = {"command": "startjob",
                                "status": "OK", "message": "started"}
                     messageJson = json.dumps(message)
+                    self.onHold = False
                     self.sendToClient(messageJson)
 
     def on_reset_alarm(self):
