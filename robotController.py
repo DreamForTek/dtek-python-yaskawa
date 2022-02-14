@@ -55,6 +55,16 @@ class RobotController:
         if item["itemType"] == "Byte":
             itemToRead = FS100.Variable(
                 FS100.VarType.BYTE, int(item["itemNum"]))
+        if item["itemType"] == "IO":
+            fullbyteaddress = item["itemNum"].split('.')
+            bitaddress = -1
+            byteaddress = 0
+            if len(fullbyteaddress) > 1:
+                bitaddress = int(fullbyteaddress[1])
+
+            byteaddress = int(fullbyteaddress[0])
+            itemToRead = FS100.Variable(
+                FS100.VarType.IO, byteaddress)
 
         if itemToRead:
 
@@ -77,7 +87,14 @@ class RobotController:
                     #     str(var.val['pos'][6]))
                     pass
                 else:
-                    val_str = str(itemToRead.val)
+                    if item["itemType"] == "IO" and bitaddress > -1:
+                        n1 = f"{itemToRead.val:#010b}".replace(
+                            '0b', '')[::-1]  # bin(itemToRead.val)[2:]
+                        if bitaddress > 7:
+                            bitaddress = 7
+                        val_str = n1[bitaddress]
+                    else:
+                        val_str = str(itemToRead.val)
 
                 # check if changed notify
                 if val_str:
@@ -196,11 +213,28 @@ class RobotController:
                 int(writeVar["itemValue"]),
             )
         if writeVar["itemType"] == "Byte":
+            if writeVar["itemValue"]=='true':
+                writeVar["itemValue"]=1
+            if writeVar["itemValue"]=='false':
+                writeVar["itemValue"]=0
+                
             varToWrite = FS100.Variable(
                 FS100.VarType.BYTE,
                 int(writeVar["itemNum"]),
                 int(writeVar["itemValue"]),
             )
+        if writeVar["itemType"] == "IO":
+            if writeVar["itemValue"]=='true':
+                writeVar["itemValue"]=1
+            if writeVar["itemValue"]=='false':
+                writeVar["itemValue"]=0
+                
+            varToWrite = FS100.Variable(
+                FS100.VarType.IO,
+                int(writeVar["itemNum"]),
+                int(writeVar["itemValue"]),
+            )
+
 
         if varToWrite:
 
@@ -462,6 +496,13 @@ class RobotController:
                     hex(self.robot.errno)))
                 time.sleep(2)
             else:
+                if self.onHold:
+                    self.robot.switch_power(
+                        FS100.POWER_TYPE_HOLD, FS100.POWER_SWITCH_ON)
+                    # a hold off in case we switch to teach/play mode
+                    self.robot.switch_power(
+                        FS100.POWER_TYPE_HOLD, FS100.POWER_SWITCH_OFF)
+
                 if FS100.ERROR_SUCCESS != self.robot.play_job():
 
                     message = "Failed to play job. ({})".format(
