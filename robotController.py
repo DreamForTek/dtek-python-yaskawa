@@ -24,6 +24,7 @@ class RobotController:
         self.isAlarmed = False
         self.isServoOn = False
         self.isRunning = False
+        self.isPlay = False
         self.onHold = False
 
         self.thread = threading.Thread(target=self.monitorWorker, args=())
@@ -213,28 +214,27 @@ class RobotController:
                 int(writeVar["itemValue"]),
             )
         if writeVar["itemType"] == "Byte":
-            if writeVar["itemValue"]=='true':
-                writeVar["itemValue"]=1
-            if writeVar["itemValue"]=='false':
-                writeVar["itemValue"]=0
-                
+            if writeVar["itemValue"] == 'true':
+                writeVar["itemValue"] = 1
+            if writeVar["itemValue"] == 'false':
+                writeVar["itemValue"] = 0
+
             varToWrite = FS100.Variable(
                 FS100.VarType.BYTE,
                 int(writeVar["itemNum"]),
                 int(writeVar["itemValue"]),
             )
         if writeVar["itemType"] == "IO":
-            if writeVar["itemValue"]=='true':
-                writeVar["itemValue"]=1
-            if writeVar["itemValue"]=='false':
-                writeVar["itemValue"]=0
-                
+            if writeVar["itemValue"] == 'true':
+                writeVar["itemValue"] = 1
+            if writeVar["itemValue"] == 'false':
+                writeVar["itemValue"] = 0
+
             varToWrite = FS100.Variable(
                 FS100.VarType.IO,
                 int(writeVar["itemNum"]),
                 int(writeVar["itemValue"]),
             )
-
 
         if varToWrite:
 
@@ -277,7 +277,12 @@ class RobotController:
         if FS100.ERROR_SUCCESS == self.robot.get_status(status):
 
             onOld = status["hold_by_pendant"] or status["hold_externally"] or status["hold_by_cmd"] or status["teach"]
-            if onOld:
+            self.isAlarmed = status["alarming"]
+            self.isServoOn = status["servo_on"]
+            self.isRunning = status["running"]
+            self.isPlay = status["play"]
+
+            if (onOld) or (self.isServoOn == False and self.isPlay == True):
                 self.onHold = True
 
             status["on_hold"] = self.onHold
@@ -285,9 +290,6 @@ class RobotController:
             statusMessage = {"command": "readstatus",
                              "status": "OK", "message": status}
             statusMessageJson = json.dumps(statusMessage)
-            self.isAlarmed = status["alarming"]
-            self.isServoOn = status["servo_on"]
-            self.isRunning = status["running"]
 
             self.sendToClient(statusMessageJson)
             # print(status)
