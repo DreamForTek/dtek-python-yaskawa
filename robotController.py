@@ -134,6 +134,9 @@ class RobotController:
     def monitorWorker(self):
         """thread worker function"""
         print("Monitor vars thread started")
+        robotConnectedLastState = False
+        robotConnected = False
+        firstRun = True
         while self.terminateMonitor == False:
 
             try:
@@ -146,6 +149,31 @@ class RobotController:
                     self.readStatus()
                     self.readJobInfo()
                     # self.getAlarmStatus()
+
+                robotConnected = self.robot.connected()
+
+                if((robotConnected != robotConnectedLastState) or firstRun == True):
+
+                    firstRun = False
+
+                    if(robotConnected):
+                        message = {
+                            "command": "robotConnection",
+                            "status": "OK",
+                            "message": "Connection to robot OK",
+                        }
+                        messageJson = json.dumps(message)
+                        self.sendToClient(messageJson)
+                    else:
+                        message = {
+                            "command": "robotConnection",
+                            "status": "NOK",
+                            "message": "No connection to robot",
+                        }
+                        messageJson = json.dumps(message)
+                        self.sendToClient(messageJson)
+
+                    print(message)
 
                 time.sleep(0.1)
 

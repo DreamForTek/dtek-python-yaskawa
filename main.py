@@ -99,6 +99,9 @@ class connectionHandler(socketserver.BaseRequestHandler):
                     break
                 print("Data received:", dataReceived)
                 self.processDataReceived(dataReceived)
+        except Exception as e:
+            print(e.__class__, ':', e)
+            print(traceback.format_exc())
         finally:
             pass
 
