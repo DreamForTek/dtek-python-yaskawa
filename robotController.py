@@ -26,6 +26,7 @@ class RobotController:
         self.isRunning = False
         self.isPlay = False
         self.onHold = False
+        self.isOnline = False
 
         self.thread = threading.Thread(target=self.monitorWorker, args=())
         self.thread.start()
@@ -134,8 +135,7 @@ class RobotController:
     def monitorWorker(self):
         """thread worker function"""
         print("Monitor vars thread started")
-        robotConnectedLastState = False
-        robotConnected = False
+        robotOnlineLastState = False
         firstRun = True
         while self.terminateMonitor == False:
 
@@ -150,13 +150,13 @@ class RobotController:
                     self.readJobInfo()
                     # self.getAlarmStatus()
 
-                robotConnected = self.robot.connected()
+                if((self.isOnline != robotOnlineLastState) or firstRun == True):
 
-                if((robotConnected != robotConnectedLastState) or firstRun == True):
+                    robotOnlineLastState=self.isOnline
 
                     firstRun = False
 
-                    if(robotConnected):
+                    if(self.isOnline):
                         message = {
                             "command": "robotConnection",
                             "status": "OK",
@@ -304,6 +304,8 @@ class RobotController:
         status = {}
         if FS100.ERROR_SUCCESS == self.robot.get_status(status):
 
+            self.isOnline = True
+
             onOld = status["hold_by_pendant"] or status["hold_externally"] or status["hold_by_cmd"] or status["teach"]
             self.isAlarmed = status["alarming"]
             self.isServoOn = status["servo_on"]
@@ -323,6 +325,7 @@ class RobotController:
             # print(status)
 
         else:
+            self.isOnline = False
             message = "Failed to read status. ({})".format(
                 hex(self.robot.errno))
 
