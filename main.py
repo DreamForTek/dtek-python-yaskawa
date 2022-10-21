@@ -7,16 +7,61 @@
 #    Rui Sebastião <rui.sebastiao@dreamforit.com>
 #
 
-#Ver: 1.0.6
+# Ver: 1.0.6
 
 import socketserver
 import threading
 import json
 import traceback
 from robotController import RobotController
-import signal
+import os
 import sys
 from functools import partial
+
+import argparse
+
+import psutil
+
+
+# Instantiate the parser
+parser = argparse.ArgumentParser(description='Dtek python Yaskawa')
+
+
+parser.add_argument('-p', '--port', type=int,
+                    help='tcp server port number')
+
+
+parser.add_argument('-i', '--ip', type=str,
+                    help='Robot ip number')
+
+
+parser.add_argument('-m', '--multiple', action='store_true',
+                    help='Allow multiple instances')
+
+parser.add_argument('-d', '--id', type=str,
+                    help='id')
+
+
+args = parser.parse_args()
+
+
+serverport = args.port if args.port else 8881
+
+robotIp = args.ip if args.ip else '192.168.250.101'
+
+
+def checkIfRunning():
+    for p in psutil.process_iter():
+        cmdline = p.cmdline()
+        process_id = os.getpid()
+        if 'python' in p.name():
+            for cmd in cmdline:
+                if (args.id and args.id in cmd) and (process_id != p.pid):
+                    print("Terminating running dtek-python-yaskawa:", p)
+                    p.kill()
+                    break
+    print("Check running done")
+
 
 
 class connectionHandler(socketserver.BaseRequestHandler):
@@ -122,7 +167,12 @@ def exit_gracefully(signum, robotcontroller):
 if __name__ == '__main__':
     # store the original SIGINT handler
 
-    robotcontroller = RobotController('192.168.250.101')
+
+
+    if not args.multiple:
+        checkIfRunning()
+
+    robotcontroller = RobotController(args.id)
     # signal.signal(signal.SIGINT, partial(exit_gracefully, robotcontroller))
 
     socketserver.TCPServer.allow_reuse_address = 1
