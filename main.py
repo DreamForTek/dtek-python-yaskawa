@@ -54,7 +54,8 @@ class connectionHandler(socketserver.BaseRequestHandler):
                         self.server.robotcontroller.writeVariable(monitoritem)
                     if command == 'updatemonitoritem':
                         monitoritem = res['value']
-                        self.server.robotcontroller.updateMonitoritem(monitoritem)
+                        self.server.robotcontroller.updateMonitoritem(
+                            monitoritem)
                     if command == 'readstatus':
                         # monitoritem = res['value']
                         self.server.robotcontroller.readStatus()
@@ -90,7 +91,7 @@ class connectionHandler(socketserver.BaseRequestHandler):
         self.server.robotcontroller.tcpCLient = self.request
 
         self.server.robotcontroller.clearVars()
-
+        self.server.robotcontroller.firstRun = True
 
         try:
             while 1:

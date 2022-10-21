@@ -128,6 +128,7 @@ class RobotController:
                     "id": item["id"],
                     "message": message,
                 }
+                self.isOnline = False
                 errorMessageJson = json.dumps(errorMessage)
                 self.sendToClient(errorMessageJson)
                 print(message)
@@ -141,10 +142,6 @@ class RobotController:
 
             try:
 
-                for monitorItem in self.monitorItems:
-
-                    self.readItem(monitorItem)
-
                 if self.monitorStatus:
                     self.readStatus()
                     self.readJobInfo()
@@ -152,7 +149,7 @@ class RobotController:
 
                 if((self.isOnline != robotOnlineLastState) or firstRun == True):
 
-                    robotOnlineLastState=self.isOnline
+                    robotOnlineLastState = self.isOnline
 
                     firstRun = False
 
@@ -175,9 +172,14 @@ class RobotController:
 
                     print(message)
 
+                if self.isOnline:
+                    for monitorItem in self.monitorItems:
+                        self.readItem(monitorItem)
+
                 time.sleep(0.1)
 
             except Exception as e:
+                self.isOnline = False
                 print(e.__class__, ":", e)
                 print(traceback.format_exc())
 
