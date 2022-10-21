@@ -7,6 +7,7 @@
 #    Rui Sebastião <rui.sebastiao@dreamforit.com>
 #
 
+#Ver: 1.0.6
 
 import socketserver
 import threading

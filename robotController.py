@@ -70,7 +70,8 @@ class RobotController:
 
         if itemToRead:
 
-            if FS100.ERROR_SUCCESS == self.robot.read_variable(itemToRead):
+            readCode = self.robot.read_variable(itemToRead)
+            if FS100.ERROR_SUCCESS == readCode:
                 if item["itemType"] == "String":
                     val_str = itemToRead.val.rstrip("\x00")
                 elif item["itemType"] == "RobotPosition":
@@ -117,6 +118,8 @@ class RobotController:
 
                     item["itemValue"] = val_str
             else:
+                if(readCode == FS100.ERROR_CONNECTION):
+                    self.isOnline = False
 
                 message = "Failed to read the variable. ({})".format(
                     hex(self.robot.errno)
@@ -137,7 +140,7 @@ class RobotController:
         """thread worker function"""
         print("Monitor vars thread started")
         robotOnlineLastState = False
-        firstRun = True
+        self.firstRun = True
         while self.terminateMonitor == False:
 
             try:
@@ -147,11 +150,11 @@ class RobotController:
                     self.readJobInfo()
                     # self.getAlarmStatus()
 
-                if((self.isOnline != robotOnlineLastState) or firstRun == True):
+                if((self.isOnline != robotOnlineLastState) or self.firstRun == True):
 
                     robotOnlineLastState = self.isOnline
 
-                    firstRun = False
+                    self.firstRun = False
 
                     if(self.isOnline):
                         message = {
@@ -175,6 +178,8 @@ class RobotController:
                 if self.isOnline:
                     for monitorItem in self.monitorItems:
                         self.readItem(monitorItem)
+                        if self.isOnline == False:
+                            break
 
                 time.sleep(0.1)
 
@@ -304,7 +309,8 @@ class RobotController:
 
     def readStatus(self):
         status = {}
-        if FS100.ERROR_SUCCESS == self.robot.get_status(status):
+        readCode = self.robot.get_status(status)
+        if FS100.ERROR_SUCCESS == readCode:
 
             self.isOnline = True
 
@@ -327,7 +333,9 @@ class RobotController:
             # print(status)
 
         else:
-            self.isOnline = False
+            if(readCode == FS100.ERROR_CONNECTION):
+                self.isOnline = False
+
             message = "Failed to read status. ({})".format(
                 hex(self.robot.errno))
 
