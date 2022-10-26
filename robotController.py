@@ -16,6 +16,7 @@ import pathlib
 class RobotController:
     def __init__(self, ip="192.168.250.101"):
 
+        print("Connecting to Yaskawa RObot IP:"+ip)
         self.robot = FS100(ip)
         self.stop_sign = threading.Semaphore()
         self.monitorItems = []

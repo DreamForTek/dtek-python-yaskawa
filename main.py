@@ -172,7 +172,7 @@ if __name__ == '__main__':
     if not args.multiple:
         checkIfRunning()
 
-    robotcontroller = RobotController(args.id)
+    robotcontroller = RobotController(robotIp)
     # signal.signal(signal.SIGINT, partial(exit_gracefully, robotcontroller))
 
     socketserver.TCPServer.allow_reuse_address = 1
