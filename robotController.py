@@ -119,7 +119,7 @@ class RobotController:
 
                     item["itemValue"] = val_str
             else:
-                if(readCode == FS100.ERROR_CONNECTION):
+                if (readCode == FS100.ERROR_CONNECTION):
                     self.isOnline = False
 
                 message = "Failed to read the variable. ({})".format(
@@ -151,13 +151,13 @@ class RobotController:
                     self.readJobInfo()
                     # self.getAlarmStatus()
 
-                if((self.isOnline != robotOnlineLastState) or self.firstRun == True):
+                if ((self.isOnline != robotOnlineLastState) or self.firstRun == True):
 
                     robotOnlineLastState = self.isOnline
 
                     self.firstRun = False
 
-                    if(self.isOnline):
+                    if (self.isOnline):
                         message = {
                             "command": "robotConnection",
                             "status": "OK",
@@ -237,6 +237,9 @@ class RobotController:
 
     def writeVariable(self, writeVar):
         varToWrite = None
+        if writeVar["itemNum"] == "":
+            return
+
         if writeVar["itemType"] == "Integer":
             varToWrite = FS100.Variable(
                 FS100.VarType.INTEGER,
@@ -252,15 +255,20 @@ class RobotController:
         if writeVar["itemType"] == "Byte":
             if writeVar["itemValue"] == 'true':
                 writeVar["itemValue"] = 1
-            if writeVar["itemValue"] == 'false':
+            elif writeVar["itemValue"] == 'false':
                 writeVar["itemValue"] = 0
+
+            itemValue = int(writeVar["itemValue"])
+            if (itemValue < 0):
+                itemValue = 0
 
             varToWrite = FS100.Variable(
                 FS100.VarType.BYTE,
                 int(writeVar["itemNum"]),
-                int(writeVar["itemValue"]),
+                int(itemValue),
             )
         if writeVar["itemType"] == "IO":
+
             if writeVar["itemValue"] == 'true':
                 writeVar["itemValue"] = 1
             if writeVar["itemValue"] == 'false':
@@ -334,7 +342,7 @@ class RobotController:
             # print(status)
 
         else:
-            if(readCode == FS100.ERROR_CONNECTION):
+            if (readCode == FS100.ERROR_CONNECTION):
                 self.isOnline = False
 
             message = "Failed to read status. ({})".format(
@@ -398,9 +406,9 @@ class RobotController:
 
         message = {}
 
-        if(cycletype == "CYCLE_TYPE_STEP"):
+        if (cycletype == "CYCLE_TYPE_STEP"):
             fs100cycletype = FS100.CYCLE_TYPE_STEP
-        elif(cycletype == "CYCLE_TYPE_ONE_CYCLE"):
+        elif (cycletype == "CYCLE_TYPE_ONE_CYCLE"):
             fs100cycletype = FS100.CYCLE_TYPE_ONE_CYCLE
         else:
             fs100cycletype = FS100.CYCLE_TYPE_CONTINUOUS
