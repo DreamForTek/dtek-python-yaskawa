@@ -83,7 +83,7 @@ class connectionHandler(socketserver.BaseRequestHandler):
                
                 # commanddata = commanddata.replace('\r', '')
 
-                if len(commanddata) <2 or  commanddata[len(commanddata)-1]!='\n':
+                if len(commanddata) <2 or  commanddata[len(commanddata)-1]!='}':
                     continue
                 res = json.loads(commanddata)
                 if (res['command']):
