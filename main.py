@@ -63,11 +63,10 @@ def checkIfRunning():
     print("Check running done")
 
 
-
 class connectionHandler(socketserver.BaseRequestHandler):
 
     def processDataReceived(self, data):
-        #info = '{"name": "Dave","City": "NY"}'
+        # info = '{"name": "Dave","City": "NY"}'
 
         allcommandreceived = (data[len(data)-1]) == 13
         self.alldatareceived += data.decode()
@@ -76,13 +75,18 @@ class connectionHandler(socketserver.BaseRequestHandler):
 
         try:
 
+            self.alldatareceived = self.alldatareceived.replace('\n', '')
+
             datasplited = self.alldatareceived.split('\r')
 
             for commanddata in datasplited:
-                if len(commanddata) == 0:
+               
+                # commanddata = commanddata.replace('\r', '')
+
+                if len(commanddata) <2 or  commanddata[len(commanddata)-1]!='\n':
                     continue
                 res = json.loads(commanddata)
-                if(res['command']):
+                if (res['command']):
                     command = res['command']
                     if command == 'addmonitoritem':
                         monitoritem = res['value']
@@ -120,7 +124,7 @@ class connectionHandler(socketserver.BaseRequestHandler):
                         self.server.robotcontroller.softHold()
 
             if allcommandreceived == False:
-                self.alldatareceived = commanddata[len(commanddata)-1]
+                self.alldatareceived = datasplited[len(datasplited)-1]
             else:
                 self.alldatareceived = ""
 
@@ -166,8 +170,6 @@ def exit_gracefully(signum, robotcontroller):
 
 if __name__ == '__main__':
     # store the original SIGINT handler
-
-
 
     if not args.multiple:
         checkIfRunning()
